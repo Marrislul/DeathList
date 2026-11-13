@@ -1,0 +1,8 @@
+DL changes:
+- someone killed me, i died 5 Hours later by pve, it still wanted to add that Person
+- notes: why did you add him/her. Maybe with synthat /dl add <name> <optinal text why> but edit later as well
+- flash screen or "!" that Shows up, nur just text. Maybe even Sound
+- target adding
+- sometimes still not detecting correctly
+- and sometimes detection spam!, once with "!" might be enough, as Long as the target is there.
+- export/import list

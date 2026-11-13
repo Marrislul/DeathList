@@ -1,0 +1,11 @@
+## Interface: 20506
+## Title: DeathList
+## Notes: Remembers who killed you in PvP and warns you when they're nearby.
+## Author: Marris
+## Version: @project-version@
+## IconTexture: Interface\AddOns\DeathList\Media\icon
+## SavedVariables: DeathListDB
+## OptionalDeps: Ace3
+
+embeds.xml
+DeathList.lua

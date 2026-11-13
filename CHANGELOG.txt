@@ -1,0 +1,12 @@
+1.1.0
+
+- Works in WoW Forever and retail: your killer is read from the death recap there.
+- Only a player who hit you in the 20 seconds before you died counts as your killer.
+- After a death you're asked if you want to add your killer, with an optional note (not in battlegrounds or arenas).
+- /dl add adds your target if no name is given. Notes: /dl add Name, why.
+- Notes can be edited in the options.
+- Warning in the middle of the screen, the sound plays even with game sounds off.
+- Warns once per player, and again only after they were gone for 5 minutes.
+- Also spots listed players by target and mouseover, and in classic by the combat log.
+- Names are matched without case, and players whose name loads late are found too.
+- Export and import of the list in the options.
