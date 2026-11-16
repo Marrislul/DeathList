@@ -37,7 +37,7 @@ local options
 
 local defaults = {
     profile = {
-        -- key (lower case "name-realm") -> { name = "Name-Realm", addedDate = time(), note = "" }
+        -- key (lower case "name-realm", Forever "first last") -> { name = "Name-Realm", addedDate = time(), note = "" }
         killList = {},
         alertSound = true,
         alertChat = true,
@@ -51,6 +51,16 @@ local defaults = {
 -- Names
 --------------------------------------------------------------------------------
 
+-- WoW Forever: every character has a surname ("First Last") and the full name is unique
+-- in the whole region. UnitName returns the surname where other clients return the
+-- realm, and the realm the game reports there is a server layer ("CAMWOWEU5Realm2PvP")
+-- that can change, so names are kept without a realm.
+local uniqueNames = (WOW_PROJECT_CAMELOT ~= nil and WOW_PROJECT_ID == WOW_PROJECT_CAMELOT)
+    or (type(RegionalUniqueNamesEnabled) == "function" and RegionalUniqueNamesEnabled() == true)
+local separators = Constants and Constants.CharacterNameSeparatorConsts
+local SURNAME_SEP = separators and separators.CHARACTERNAME_SURNAME_SEPARATOR or " "
+local NAME_EXAMPLE = uniqueNames and "First Last" or "Name-Realm"
+
 local function NormalizeRealm(realm)
     return (realm:gsub("[%s%-]", ""))
 end
@@ -61,9 +71,23 @@ end
 
 -- "Name" or "Name-Realm" -> lookup key (lower case) and display name ("Name-Realm").
 -- Names never contain "-" but realms can ("Azjol-Nerub"), so the first "-" splits
--- them. WoW Forever names contain a space ("First Last"); that is kept.
+-- them. Forever: "First Last", "First Last-Realm" or "First-Last" -> "First Last".
 local function MakeKey(name, realm)
     name = strtrim(name or "")
+    if uniqueNames then
+        local first, rest = name:match("^(.-)%-(.+)$")
+        if first then
+            first = strtrim(first)
+            if first:find(SURNAME_SEP, 1, true) then
+                name = first -- a realm after the full name
+            else
+                name = first .. SURNAME_SEP .. strtrim(rest:match("^[^%-]*"))
+            end
+        end
+        name = strtrim(name)
+        if name == "" then return nil end
+        return strlower(name), name
+    end
     if not realm or realm == "" then
         local base, rest = name:match("^(.-)%-(.+)$")
         if base then
@@ -81,6 +105,13 @@ local function UnitKey(unit)
     local name, realm = UnitName(unit)
     if not name or issecretvalue(name) or issecretvalue(realm) or name == UNKNOWNOBJECT then
         return nil
+    end
+    if uniqueNames then
+        -- the second value is the surname
+        if realm and realm ~= "" and not name:find(SURNAME_SEP, 1, true) then
+            name = name .. SURNAME_SEP .. realm
+        end
+        return MakeKey(name)
     end
     return MakeKey(name, realm)
 end
@@ -186,6 +217,34 @@ function DeathList:MigrateList()
         if key and not list[key] then
             local addedDate = type(v) == "table" and v.addedDate or time()
             list[key] = { name = display, addedDate = addedDate, note = "" }
+        end
+    end
+
+    -- Forever: earlier test versions kept a realm ("First Last-Realm") or took the
+    -- surname for one ("First-Last").
+    if uniqueNames then
+        local moved = {}
+        for k, v in pairs(list) do
+            local key, display = MakeKey(v.name)
+            if key and key ~= k then
+                moved[k] = { key = key, display = display }
+            end
+        end
+        for k, m in pairs(moved) do
+            local v = list[k]
+            list[k] = nil
+            local other = list[m.key]
+            if other then
+                -- the same player twice: keep the older date and both notes
+                other.addedDate = math.min(other.addedDate or time(), v.addedDate or time())
+                local note = v.note or ""
+                if note ~= "" and note ~= other.note then
+                    other.note = (other.note and other.note ~= "") and (other.note .. "; " .. note) or note
+                end
+            else
+                v.name = m.display
+                list[m.key] = v
+            end
         end
     end
 end
@@ -516,13 +575,13 @@ function DeathList:SlashCommand(input)
         if who then
             self:AddToList(who, note)
         else
-            self:Print("Target a player or type a name: /dl add Name-Realm")
+            self:Print("Target a player or type a name: /dl add " .. NAME_EXAMPLE)
         end
     elseif cmd == "remove" then
         if rest ~= "" then
             self:RemoveFromList(rest)
         else
-            self:Print("Usage: /dl remove Name-Realm")
+            self:Print("Usage: /dl remove " .. NAME_EXAMPLE)
         end
     elseif cmd == "list" then
         self:PrintList()
@@ -577,7 +636,8 @@ function DeathList:BuildOptions()
             addInput = {
                 type = "input",
                 name = "Player name",
-                desc = "Name or Name-Realm. Without a realm, your own realm is used.",
+                desc = uniqueNames and "First and last name."
+                    or "Name or Name-Realm. Without a realm, your own realm is used.",
                 order = 21,
                 width = "double",
                 get = function() return "" end,
